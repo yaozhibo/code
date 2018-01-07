@@ -9,21 +9,22 @@
 <script src="./InspectionBaseData.js"></script>
 <script>
     //TODO:不要删除注释语句
-    main(CustomCountry, InsCountryZone);
-    main(CustomCurr, InsCurrency);
-    main(CustomCustom, InsCustom);
-    main(CustomDistrict, InsDistrict);
-    main(CustomPack, InsPackingType);
-    main(CustomTrade, InsTransportType);
-    //    main(CustomUnit, InsQuantityUnit);
+    main(CustomCountry, InsCountryZone, false);
+    main(CustomCurr, InsCurrency, false);
+    main(CustomCustom, InsCustom, false);
+    main(CustomDistrict, InsDistrict, true);
+    main(CustomPack, InsPackingType, false);
+    main(CustomTrade, InsTransportType, false);
+    main(CustomUnit, InsQuantityUnit, false);
 
-    function main(arr1, arr2)
+    function main(arr1, arr2, special)
     {
         var reflectionList = [];
         var same = [];
         var diff_arr1 = [];
         var diff_arr2 = [];
         var foo = [];//middleware
+        var fixed;
         var i = 0;
         var j = 0;
 
@@ -38,7 +39,7 @@
             });
         });
 
-        //2.匹配报关国家有歧义项
+        //2.匹配报关有歧义项
         for(i=0; i<arr1.length; i++) {
             var flag = compare(same,slimString(arr1[i][1]));
             if(!flag) {
@@ -47,7 +48,7 @@
             }
         }
 
-        //匹配报检国家有歧义项
+        //匹配报检有歧义项
         for(i=j=0; i<arr2.length; i++) {
             var flag_ = compare(same, slimString(arr2[i][1]));
             if(!flag_) {
@@ -58,7 +59,13 @@
 //        showDiff(diff_arr1, diff_arr2);
 
         //3.合并有歧义相同项
-        var fixed = fixSame_Metropolis(diff_arr1, diff_arr2);
+        if(special === false) {
+            fixed = fixSame_Metropolis(diff_arr1, diff_arr2);
+        } else {
+            fixed = fixSame_special_oneToOne(diff_arr1, diff_arr2);
+        }
+
+        console.log(fixed);
 
         //4.将有歧义相同项添加至映射数组
         for(i=0; i<fixed.length; i++) {
@@ -80,7 +87,6 @@
         }
 
         //5.匹配有歧义滞空项
-        console.log(fixed);
         var temp_diff_arr1 = diff_arr1;
         var loop = temp_diff_arr1.length;
         for(i=0; i<loop; i++) {
@@ -101,8 +107,8 @@
             }
         }
         ignore[1] = temp_diff_arr2;
-        /*console.log(ignore);
-        console.log(reflectionList);//查看融合后的映射数组*/
+//        console.log(ignore);//查看置空项数组
+//        console.log(reflectionList);//查看融合后的映射数组
 
     }
 
@@ -164,36 +170,6 @@
         return temp;
     }
 
-    //模糊匹配
-    function fixSame(arr1, arr2) {
-        var k=0;
-        var like = [];
-//        var length = arr1.length < arr2.length? arr1.length : arr2.length;
-        for(var i=0; i<arr1.length; i++) {
-            var compare_1 = arr1[i].substring(0,2);
-            var compare_4 = arr1[i].substring(0,1)+arr1[i].slice(-1);
-            for(var j=0; j<arr2.length; j++) {
-                var compare_2 = arr2[j].substring(0,2);
-                var compare_3 = arr2[j].slice(-2);
-                var compare_5 = arr2[j].substring(0,1)+arr2[j].slice(-1);
-                if(compare_1 === compare_2) {
-                    like[k] = [arr1[i],arr2[j]];
-                    k++;
-                } else if(compare_1 === compare_3) {
-                    like[k] = [arr1[i],arr2[j]];
-                    k++;
-                } else if(compare_4 === compare_5) {
-                    like[k] = [arr1[i], arr2[j]];
-                    k++;
-                }
-                /*if(compare(sliceArray(like), arr1[i])) {
-                        continue;
-                    }*/
-            }
-        }
-        return like;
-    }
-
     //模拟退火
     function fixSame_Metropolis(arr1, arr2) {
         var countTimes = 2;
@@ -223,7 +199,61 @@
                             var percent_old = percent;
                             var result = arr2[j];
                         } else {
-                            if(percent < percent_old) {
+                            if(percent <= percent_old) {
+                                percent_old = percent;
+                                result = arr2[j];
+                                if(percent_old<2) { //设置50%匹配
+                                    like[n] = [arr1[i], result];
+                                    n++;
+                                }
+                            } else {
+                                var T = new Date().getTime()-T_start/1000;
+                                if(Math.random()>Math.exp(-(percent- percent_old)/T)) {
+                                    percent_old = percent;
+                                    result = arr2[j];
+                                    if(percent_old<2.5) { //设置40%匹配
+                                        like[n] = [arr1[i], result];
+                                        n++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return like;
+    }
+
+    function fixSame_special_oneToOne(arr1, arr2) {
+        var countTimes = 2;
+        var n = 0;
+        var like = [];
+        var T_start = new Date().getTime();
+        for(var i=0; i<arr1.length; i++) {
+            for(var count=1; count<=countTimes; count++) {
+                for(var j=0; j<arr2.length; j++) {
+                    var strLen1 = arr2[j].length;
+
+                    var subchar = [];
+
+                    for(var k=0; k<strLen1; k++) {
+                        subchar[k] = arr2[j].substr(k, 1);
+                    }
+
+                    var l = 0;
+                    for(var m=0; m<arr1[i].length; m++) {
+                        if(compare(subchar, arr1[i].substr(m,1))) {
+                            l++;
+                        }
+                    }
+                    if(l>0) {
+                        var percent = arr1[i].length/l;//取了倒数，此值越小越好
+                        if(count === 1) {
+                            var percent_old = percent;
+                            var result = arr2[j];
+                        } else {
+                            if(percent <= percent_old) {
                                 percent_old = percent;
                                 result = arr2[j];
                             } else {
@@ -231,17 +261,17 @@
                                 if(Math.random()>Math.exp(-(percent- percent_old)/T)) {
                                     percent_old = percent;
                                     result = arr2[j];
+
                                 }
                             }
                         }
                     }
                 }
             }
-            if(percent_old<2) { //设置50%匹配
+            if(percent_old<2) {
                 like[n] = [arr1[i], result];
                 n++;
             }
-
         }
         return like;
     }
