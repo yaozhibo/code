@@ -9,15 +9,16 @@
 <script src="./InspectionBaseData.js"></script>
 <script>
     //TODO:不要删除注释语句
-    main(CustomCountry, InsCountryZone, false);
-    main(CustomCurr, InsCurrency, false);
-    main(CustomCustom, InsCustom, false);
-    main(CustomDistrict, InsDistrict, true);
-    main(CustomPack, InsPackingType, false);
-    main(CustomTrade, InsTransportType, false);
-    main(CustomUnit, InsQuantityUnit, false);
+    main(CustomCountry, InsCountryZone, true, 1.6);
+    //    main(CustomCurr, InsCurrency, true, 2);
+    //    main(CustomCustom, InsCustom, true, 1);
+    //    main(CustomDistrict, InsDistrict, true, 2);
+    //    main(CustomPack, InsPackingType, true, 2);
+    //    main(CustomTrade, InsTransportType, true, 1.4);
+    //    main(CustomUnit, InsQuantityUnit, true, 1);
 
-    function main(arr1, arr2, special)
+    //(bool)special:控制是否一对一，true为一对一，false为一对多；(int)defaultPercent>=1:控制匹配程度，越小越好，不能小于1，1为完全匹配
+    function main(arr1, arr2, special, defaultPercent)
     {
         var reflectionList = [];
         var same = [];
@@ -27,6 +28,7 @@
         var fixed;
         var i = 0;
         var j = 0;
+        var selfDefinateArr = [["台澎金马关税区", "中国台湾"]];
 
         //1.匹配国家无歧义相同项生成映射数组
         $.each(arr1, function(index1, value1) {
@@ -56,16 +58,15 @@
                 j++;
             }
         }
-//        showDiff(diff_arr1, diff_arr2);
+//        showDiff(diff_arr1, diff_arr2);//对比数组
 
         //3.合并有歧义相同项
         if(special === false) {
             fixed = fixSame_Metropolis(diff_arr1, diff_arr2);
         } else {
-            fixed = fixSame_special_oneToOne(diff_arr1, diff_arr2);
+            fixed = fixSame_special_oneToOne(diff_arr1, diff_arr2, defaultPercent);
         }
-
-        console.log(fixed);
+        console.log(fixed);//查看融合数组
 
         //4.将有歧义相同项添加至映射数组
         for(i=0; i<fixed.length; i++) {
@@ -107,9 +108,9 @@
             }
         }
         ignore[1] = temp_diff_arr2;
-//        console.log(ignore);//查看置空项数组
-//        console.log(reflectionList);//查看融合后的映射数组
-
+        console.log(ignore);//查看置空项数组
+        console.log(reflectionList);//查看融合后的映射数组
+        return reflectionList;
     }
 
     //转化非必要字符
@@ -119,6 +120,16 @@
         temp_value = temp_value.replace(/（/g, '(');
         temp_value = temp_value.replace(/）/g, ')');
         return temp_value;
+    }
+
+    //转化特定值
+    function transform(value, arr) {
+        for(var i=0; i<arr.length; i++) {
+            if(value === arr[i][0]) {
+                value = arr[i][1];
+                return value;
+            }
+        }
     }
 
     //查看某值是否存在于一维数组
@@ -170,7 +181,7 @@
         return temp;
     }
 
-    //模拟退火
+    //一对多模拟退火
     function fixSame_Metropolis(arr1, arr2) {
         var countTimes = 2;
         var n = 0;
@@ -225,7 +236,8 @@
         return like;
     }
 
-    function fixSame_special_oneToOne(arr1, arr2) {
+    //一对一模拟退火
+    function fixSame_special_oneToOne(arr1, arr2, defaultPercent) {
         var countTimes = 2;
         var n = 0;
         var like = [];
@@ -241,10 +253,20 @@
                         subchar[k] = arr2[j].substr(k, 1);
                     }
 
-                    var l = 0;
+                    var l = 0;//匹配长度
+                    var queueSameChar = [];
+                    var indexQueueSameChar = 0;
                     for(var m=0; m<arr1[i].length; m++) {
                         if(compare(subchar, arr1[i].substr(m,1))) {
-                            l++;
+                            queueSameChar[indexQueueSameChar] = indexOfVal(subchar, arr1[i].substr(m,1));
+                            if(indexQueueSameChar === 0) {
+                                l++;
+                            } else {
+                                if(queueSameChar[indexQueueSameChar] > queueSameChar[indexQueueSameChar-1]) {
+                                    l++;
+                                }
+                            }
+                            indexQueueSameChar++;
                         }
                     }
                     if(l>0) {
@@ -253,7 +275,7 @@
                             var percent_old = percent;
                             var result = arr2[j];
                         } else {
-                            if(percent <= percent_old) {
+                            if(percent < percent_old) {
                                 percent_old = percent;
                                 result = arr2[j];
                             } else {
@@ -261,14 +283,13 @@
                                 if(Math.random()>Math.exp(-(percent- percent_old)/T)) {
                                     percent_old = percent;
                                     result = arr2[j];
-
                                 }
                             }
                         }
                     }
                 }
             }
-            if(percent_old<2) {
+            if(percent_old<=defaultPercent) {
                 like[n] = [arr1[i], result];
                 n++;
             }
@@ -292,6 +313,13 @@
         if(index >= 0) {
             arr.splice(index, 1);
         }
+    }
+
+    //删除字符串中某字符
+    function removeCharOfStr(string, char) {
+        var reg = new RegExp(char);
+        string.replace(reg, "");
+        return string.replace(reg, "");
     }
 
 </script>
