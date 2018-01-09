@@ -4,18 +4,18 @@
     <meta charset="utf-8">
 </head>
 <body>
-<script src="./jquery.min.js"></script>
-<script src="./CustomBaseData.js"></script>
-<script src="./InspectionBaseData.js"></script>
+<script src="{{ asset('js/jquery.min.js') }}"></script>
+<script src="{{ asset('js/basedata/CustomBaseData.js') }}"></script>
+<script src="{{ asset('js/basedata/InspectionBaseData.js') }}"></script>
 <script>
     //TODO:不要删除注释语句
-    main(CustomCountry, InsCountryZone, true, 1.6);
-    //    main(CustomCurr, InsCurrency, true, 2);
-    //    main(CustomCustom, InsCustom, true, 1);
-    //    main(CustomDistrict, InsDistrict, true, 2);
-    //    main(CustomPack, InsPackingType, true, 2);
-    //    main(CustomTrade, InsTransportType, true, 1.4);
-    //    main(CustomUnit, InsQuantityUnit, true, 1);
+    var Country = main(CustomCountry, InsCountryZone, true, 1.6);
+    var Currency = main(CustomCurr, InsCurrency, true, 2);
+    var Custom = main(CustomCustom, InsCustom, true, 1);
+    var District = main(CustomDistrict, InsDistrict, true, 2);
+    var PackType = main(CustomPack, InsPackingType, true, 2);
+    var TransportType = main(CustomTrade, InsTransportType, true, 1.4);
+    var Unit = main(CustomUnit, InsQuantityUnit, true, 1);
 
     //(bool)special:控制是否一对一，true为一对一，false为一对多；(int)defaultPercent>=1:控制匹配程度，越小越好，不能小于1，1为完全匹配
     function main(arr1, arr2, special, defaultPercent)
@@ -28,13 +28,13 @@
         var fixed;
         var i = 0;
         var j = 0;
-        var selfDefinateArr = [["台澎金马关税区", "中国台湾"]];
+        var selfDefinateArr = [["台澎金马关税区", "中国台湾"]];//设置特定对应关系（-。-算法没法识别）
 
         //1.匹配国家无歧义相同项生成映射数组
         $.each(arr1, function(index1, value1) {
             $.each(arr2, function(index2, value2) {
-                if((slimString(value1[1])) === slimString(value2[1])) {
-                    same[i] = value1[1];
+                if(slimString(value1[1]) === slimString(value2[1]) || slimString(value2[1]) === transform(slimString(value1[1]), selfDefinateArr)) {
+                    same[i] = [value1[1], value2[1]];
                     reflectionList[i] = [value1, value2];
                     i = i+1;
                 }
@@ -43,7 +43,7 @@
 
         //2.匹配报关有歧义项
         for(i=0; i<arr1.length; i++) {
-            var flag = compare(same,slimString(arr1[i][1]));
+            var flag = dimension2_compare(same,slimString(arr1[i][1]));
             if(!flag) {
                 diff_arr1[j] = arr1[i][1];
                 j++;
@@ -52,7 +52,7 @@
 
         //匹配报检有歧义项
         for(i=j=0; i<arr2.length; i++) {
-            var flag_ = compare(same, slimString(arr2[i][1]));
+            var flag_ = dimension2_compare(same, slimString(arr2[i][1]));
             if(!flag_) {
                 diff_arr2[j] = arr2[i][1];
                 j++;
@@ -62,7 +62,7 @@
 
         //3.合并有歧义相同项
         if(special === false) {
-            fixed = fixSame_Metropolis(diff_arr1, diff_arr2);
+            fixed = fixSame_oneToMany(diff_arr1, diff_arr2);
         } else {
             fixed = fixSame_special_oneToOne(diff_arr1, diff_arr2, defaultPercent);
         }
@@ -109,7 +109,7 @@
         }
         ignore[1] = temp_diff_arr2;
         console.log(ignore);//查看置空项数组
-        console.log(reflectionList);//查看融合后的映射数组
+//        console.log(reflectionList);//查看融合后的映射数组
         return reflectionList;
     }
 
@@ -126,8 +126,7 @@
     function transform(value, arr) {
         for(var i=0; i<arr.length; i++) {
             if(value === arr[i][0]) {
-                value = arr[i][1];
-                return value;
+                return arr[i][1];
             }
         }
     }
@@ -181,8 +180,7 @@
         return temp;
     }
 
-    //一对多模拟退火
-    function fixSame_Metropolis(arr1, arr2) {
+    function fixSame_oneToMany(arr1, arr2) {
         var countTimes = 2;
         var n = 0;
         var like = [];
@@ -236,7 +234,6 @@
         return like;
     }
 
-    //一对一模拟退火
     function fixSame_special_oneToOne(arr1, arr2, defaultPercent) {
         var countTimes = 2;
         var n = 0;
@@ -279,7 +276,7 @@
                                 percent_old = percent;
                                 result = arr2[j];
                             } else {
-                                var T = new Date().getTime()-T_start/1000;
+                                var T = new Date().getTime()-T_start/1125;
                                 if(Math.random()>Math.exp(-(percent- percent_old)/T)) {
                                     percent_old = percent;
                                     result = arr2[j];
